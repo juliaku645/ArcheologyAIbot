@@ -1,146 +1,79 @@
 import os
-import base64
-from typing import Optional
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_community.chat_models import ChatOpenAI  # <-- Исправленный импорт
-from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
-from langchain.chains import LLMChain
-from langchain_core.runnables import chain
-from langchain_core.output_parsers import StrOutputParser
-#from langchain.llms import OpenAI
-from langchain_community.llms import OpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain.schema import BaseOutputParser
+from langchain_core.messages import HumanMessage
+from base64 import b64encode
+import mimetypes  # Import модуль mimetypes
 
-# 1. Загрузка API ключа
+# Загружаем переменные окружения из файла .env
 load_dotenv()
-openai_api_key = os.getenv
 
-# 2. Инициализация языковой модели OpenAI
-llm = OpenAI(openai_api_key=openai_api_key)
+openai_api_key = os.getenv("OPENAI_API_KEY")  # Получаем API ключ из переменных окружения
 
-#def sendMessage(message: str, image: ??):
-
-print('b')
-
-
-print(1)
-def encode_image(self, image_path: str) -> str:
-        #Кодирование изображения в base64
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
-
-print(1)
-def process_image_with_prompt(
-            self,
-            image_path: str,
-            system_prompt: str = "Ты всемирно извсетный доктор исторических наук со стажем 50+ лет, который анализирует изображения и отвечает на вопросы о них.",
-            user_message: Optional[str] = None,
-            image_detail: str = "auto"
-    ) -> str:
-
-        base64_image = self.encode_image(image_path)
-        print(1)
-        # Формируем контент сообщения
-        message_content = [
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_image}",
-                    "detail": image_detail
-                }
-            }
-        ]
-
-        print(1)
-
-        # Добавляем текстовое сообщение, если оно есть
-        if user_message:
-            message_content.insert(0, {
-                "type": "text",
-                "text": user_message
-            })
-
-        # Создаем сообщения для нейросети
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=message_content)
-        ]
-
-        # Отправляем запрос
-        response = self.llm.invoke(messages)
-        return response.content
-
-def process_text_only(self, message: str, system_prompt: str = "Ты историк") -> str:
-        """Обработка только текстового сообщения"""
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=message)
-        ]
-
-        response = self.llm.invoke(messages)
-        return response.content;
-print(1)
-print(f"Ответ: {response}")
-
-
-# Функция для кодирования изображения в base64
 def encode_image(image_path):
-    """Encodes an image file to base64 string."""
+    """Кодирует изображение в base64."""
     with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
+        return b64encode(image_file.read()).decode('utf-8')
 
+def process_image_with_llm(image_path, system_prompt, user_prompt, context=None):
+    """Обрабатывает изображение с помощью языковой модели."""
 
-def process_image_with_llm(image_path, system_prompt, user_prompt=None, context=None):
+    if not openai_api_key:
+        raise ValueError("OPENAI_API_KEY не найден в переменных окружения. Пожалуйста, установите его.")
 
-    base64_image = encode_image(image_path)  # Encode the image
-
-    # Construct the messages to send to the model
-    messages = []
-    messages.append(SystemMessage(content=system_prompt))  # Add system prompt
-
-    if context:  # Add context messages
-        for msg in context:
-            if msg["role"] == "user":
-                messages.append(HumanMessage(content=msg["content"]))
-            elif msg["role"] == "assistant":
-                messages.append(SystemMessage(content=msg["content"])) # or AIMessage, depending on what your model understands
-
-    # Build the content of the user message including the image
-    content = []
-    if user_prompt:
-        content.append({"type": "text", "text": user_prompt})  # Add the text prompt
-
-    content.append({
-        "type": "image_url",
-        "image_url": {
-            "url": f"data:image/jpeg;base64,{base64_image}"  # Adjust image type if needed
+    chat = ChatOpenAI(model_name="-4-vision-preview", openai_api_key=openai_api_key, max_tokens=1024)
+    print('A')
+    base64_image = encode_image(image_path)
+    print('B')
+    # Определяем MIME тип изображения , _
+    mime_type= mimetypes.guess_type(image_path)
+    print('C')
+    if not mime_type:
+        mime_type = "image/jpeg"  # По умолчанию JPEG, если MIME тип не удалось определить
+        print('D')
+    print('E')
+    content = [
+        {
+            "type": "text",
+            "text": user_prompt
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:{mime_type};base64,{base64_image}"  # Включаем MIME тип
+            }
         }
-    })
-
-    messages.append(HumanMessage(content=content))  # Add the user's message including image and prompt
-
-    # Initialize the ChatOpenAI model with gpt-4-vision-preview
-    chat = ChatOpenAI(model_name="gpt-4-vision-preview", api_key=openai_api_key, max_tokens=1024)  # You need an OpenAI key with access to gpt-4-vision-preview
-
-    # Invoke the model
-    result = chat.invoke(messages)
-    return result.content  # Return the model's response
-
-
-# Example Usage:
-#if __name__ == "__main__":
-    image_file = "path/to/your/image.jpg"  # Replace with the path to your image
-    system_prompt = "You are a helpful assistant that analyzes images and answers questions. Be concise."
-    user_prompt = "Describe what you see in this image."
-    context = [
-        {"role": "user", "content": "I want to know more about this place."},
-        {"role": "assistant", "content": "Okay, what do you want to know?"}
     ]
 
-    #try:
-    response = process_image_with_llm(image_file, system_prompt, user_prompt, context)
-    print("LLM Response:", response)
-#except Exception as e:
-   # print(f"An error occurred: {e}")
+    print('F')
+    messages = [ {"role": "system", "content": system_prompt}, ]
+    print(context)
+    if context:
+        for item in context:
+            print('G')
+            messages.append(item)  # Добавляем историю контекста
+    print('u')
+    messages.append({"role": "user", "content": content}) # Добавляем запрос с изображением
+    print(messages)
+
+    # Вызываем модель
+    result = chat.invoke(messages)  # Передаем список сообщений в invoke
+    print('y')
+    return result.content  # Возвращаем ответ модели
+
+
+# Пример использования:
+if __name__ == "__main__":
+    image_file = "scale_1200.jpg"  # Замените на путь к вашему изображению
+    system_prompt = "Ты полезный ассистент, который анализирует изображения и отвечает на вопросы. Будь краток."
+    user_prompt = "Опиши, что ты видишь на этом изображении."
+    context = [
+        {"role": "user", "content": "Я хочу узнать больше об этом месте."},
+        {"role": "assistant", "content": "Хорошо, что вы хотите знать?"}
+    ]
+
+    try:
+        response = process_image_with_llm(image_file, system_prompt, user_prompt, context)
+        print("Ответ LLM:", response)
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
