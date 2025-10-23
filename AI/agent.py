@@ -67,7 +67,6 @@ def process_image_with_llm(image_path, system_prompt, user_prompt, context=None,
     return result.content  # Возвращаем ответ модели
 
 
-
 # Пример использования:
 if __name__ == "__main__":
     image_file = "scale_1200.jpg"  # Замените на путь к вашему изображению
