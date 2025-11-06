@@ -1,17 +1,12 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import  InlineKeyboardMarkup, InlineKeyboardButton
+
+keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Описание", callback_data="description"),
+            InlineKeyboardButton(text="Добавить контекст", callback_data="add_context"),
+            InlineKeyboardButton(text="Геоточка", callback_data="geo_point"),
+        ]
+    ])
 
 
-# inline_main = InlineKeyboardMarkup(inline_keyboard=[
-#     [InlineKeyboardButton(text='Корзина', callback_data='basket')],
-#     [InlineKeyboardButton(text='Каталог', callback_data='catalog')],
-#     [InlineKeyboardButton(text='Контакты', callback_data='contacts')]
-# ])
 
-main= ReplyKeyboardMarkup(keyboard=[
-         [KeyboardButton(text='Меню'),
-          KeyboardButton(text='Корзина')],
-         [KeyboardButton(text='Контакты')]
-    ],
-    resize_keyboard=True,
-    input_field_placeholder='Выберите пункт ниже'
-)
