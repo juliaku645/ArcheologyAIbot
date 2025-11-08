@@ -25,7 +25,7 @@ async def process_image_to_llm(image_bytes, system_prompt, user_prompt, context=
     chat = ChatOpenAI(model_name = model_name, openai_api_key = openai_api_key, max_tokens=1024)
 
 
-
+    # Перевод в base64
     base64_image = base64.b64encode(image_bytes).decode('utf-8')
 
     # Определяем MIME тип изображения
