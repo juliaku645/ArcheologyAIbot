@@ -79,26 +79,24 @@ async def description(callback:CallbackQuery):
     print(f"Описание фото:\n{description}")
     await callback.answer()
 
-@router.callback_query(F.data == 'add_context')
-async def add_context(callback:CallbackQuery):
-    user_id = callback.from_user.id  # Получаем user_id из callback
-    print(f"Получена команда add_context  от пользователя {user_id}")
-    message = await callback.message
-    await message.answer("Отправь мне дополнительный контекст")
-
-    print("Отправлено текстовое сообщение  пользователю")
-
-
-    print("Получено текстовое сообщение от пользователя")
-
-    await callback.answer()
+# @router.callback_query(F.data == 'add_context')
+# async def add_context(callback:CallbackQuery):
+#     user_id = callback.from_user.id  # Получаем user_id из callback
+#     print(f"Получена команда add_context  от пользователя {user_id}")
+#     message = await callback.message
+#     await message.answer("Отправь мне дополнительный контекст")
+#
+#     print("Отправлено текстовое сообщение  пользователю")
+#
+#
+#     print("Получено текстовое сообщение от пользователя")
+#
+#     await callback.answer()
 
     
 async def main():
-    #init_db()
+
     dp = Dispatcher()
-    # get_image_from_db()
-    # get_description_for_image()
 
     dp.include_router(router)
     await dp.start_polling(bot)
