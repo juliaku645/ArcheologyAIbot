@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 from app.AI.agent import get_description_for_image
-from app.database import insert_image_to_db, get_image_blob_from_db  #,init_db
+from app.database import save_or_update_image, get_image_blob_from_db  #,init_db
 import app.keyboards as kb
 load_dotenv()
 
@@ -54,18 +54,10 @@ async def handle_photo(message: types.Message, state: FSMContext, text=None):
     file_bytes_io = await message.bot.download_file(file_info.file_path)
     image_bytes = file_bytes_io.read()
 
-    await insert_image_to_db(user_id, text, image_bytes)
-    print(f'ФОТО: {image_bytes} сохранено в БД')
+    await save_or_update_image(user_id, text, image_bytes)
+    print(f'ФОТО сохранено в БД')
 
 
-
-    # keyboard = InlineKeyboardMarkup(inline_keyboard=[
-    #     [
-    #         InlineKeyboardButton(text="Описание", callback_data="description"),
-    #         InlineKeyboardButton(text="Добавить контекст", callback_data="add_context"),
-    #         InlineKeyboardButton(text="Геоточка", callback_data="geo_point"),
-    #     ]
-    # ])
 
     await state.set_state(Form.waiting_for_action)
     print("state = "+str(state))
@@ -78,38 +70,28 @@ async def handle_photo(message: types.Message, state: FSMContext, text=None):
 @router.callback_query(F.data == 'description')
 
 async def description(callback:CallbackQuery):
-    print("Получена команда description, ищем изображение")
-    image_bytes = await get_image_blob_from_db('1409137510')
+    user_id = callback.from_user.id  # Получаем user_id из callback
+    print(f"Получена команда description от пользователя {user_id}, ищем изображение")
+    image_bytes = await get_image_blob_from_db(user_id)
     print("Получена команда description, найдено изображение, идем в LLM")
     description = await get_description_for_image(image_bytes)
     await callback.message.answer(f"Описание фото:\n{description}")
     print(f"Описание фото:\n{description}")
     await callback.answer()
 
+@router.callback_query(F.data == 'add_context')
+async def add_context(callback:CallbackQuery):
+    user_id = callback.from_user.id  # Получаем user_id из callback
+    print(f"Получена команда add_context  от пользователя {user_id}")
+    message = await callback.message
+    await message.answer("Отправь мне дополнительный контекст")
+
+    print("Отправлено текстовое сообщение  пользователю")
 
 
+    print("Получено текстовое сообщение от пользователя")
 
-
-#     elif action == "add_context":
-#         await callback.message.answer("Отправьте дополнительный контекст к фото.")
-#         await state.set_state(Form.waiting_for_context)
-#
-#     elif action == "geo_point":
-#         await callback.message.answer("Пожалуйста, отправьте геоточку (местоположение).")
-#
-#
-#     await callback.answer()
-#
-# @router.message(F.state == Form.waiting_for_context)
-# async def handle_context(message: Message, state: FSMContext):
-#     print(f'Получено waiting_for_context')
-#     context = message.text
-#     data = await state.get_data()
-#     file_id = data.get("file_id")
-#     user_id = message.from_user.id
-#
-#     # TODO: сохранить контекст в БД
-#     # save_context_to_db(user_id, file_id, context_text)
+    await callback.answer()
 
     
 async def main():
