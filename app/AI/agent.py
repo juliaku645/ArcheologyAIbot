@@ -6,7 +6,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 # from base64 import b64encode
 # import mimetypes
 import asyncio
-from app.database import  get_image_blob_from_db
+from app.database import get_image_blob_from_db,  select_user_id
+
 # Загружаем переменные окружения из файла .env
 load_dotenv()
 load_dotenv(encoding='utf-8-sig')
@@ -89,7 +90,8 @@ async def get_description_for_image(base64_image):
 
 
 async def main():
-    image_bytes = await get_image_blob_from_db('1409137510')  # await важен
+    user_id = select_user_id()
+    image_bytes = await get_image_blob_from_db(user_id)  # await важен
     if image_bytes is None:
         print("Изображение не найдено в базе данных")
         return
