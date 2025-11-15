@@ -33,11 +33,18 @@ class Database:
                 return row
 
     async def get_image_blob(self, user_id: int):
-        # Чтение можно опционально не блокировать, но для безопасности можно сделать с lock
+        # Чтение можно  не блокировать, для безопасности - с lock
         async with self.db_lock:
             async with self.db.execute("SELECT photo FROM images WHERE user_id=?", (user_id,)) as cursor:
                 row = await cursor.fetchone()
                 if row:
                     return row[0]
                 return None
+    async def save_description(self, user_id: int, text: str, image_bytes: bytes,description: str):
+        async with self.db_lock:
+            async with self.db.execute("INSERT INTO LLM_replies (user_id, text, photo,description) VALUES (?, ?, ?, ?)", (user_id, text,image_bytes, description)):
+                await self.db.commit()
+
+
+
 
