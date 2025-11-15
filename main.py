@@ -3,15 +3,16 @@ import asyncio
 from aiogram import Bot, Dispatcher, F, types, Router
 from aiogram.filters import CommandStart
 from dotenv import load_dotenv
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 from app.AI.agent import get_description_for_image
-from app.database import save_or_update_image, get_image_blob_from_db  #,init_db
+from app.database import Database
 import app.keyboards as kb
 load_dotenv()
-
+DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
+database = Database(DATABASE_PATH)
 
 
 BOT_TOKEN = os.getenv("TG_TOKEN")
@@ -33,7 +34,6 @@ class Form(StatesGroup):
 async def cmd_start(message: Message,state: FSMContext):
     await message.answer("Привет! Отправь мне сообщение с картинкой")
     await state.set_state(Form.waiting_for_photo)
-    # print(f'state = {state.get_state()}')
 
 
 
@@ -54,7 +54,7 @@ async def handle_photo(message: types.Message, state: FSMContext, text=None):
     file_bytes_io = await message.bot.download_file(file_info.file_path)
     image_bytes = file_bytes_io.read()
 
-    await save_or_update_image(user_id, text, image_bytes)
+    await database.save_or_update_image(user_id, text, image_bytes)
     print(f'ФОТО сохранено в БД')
 
 
@@ -72,11 +72,12 @@ async def handle_photo(message: types.Message, state: FSMContext, text=None):
 async def description(callback:CallbackQuery):
     user_id = callback.from_user.id  # Получаем user_id из callback
     print(f"Получена команда description от пользователя {user_id}, ищем изображение")
-    image_bytes = await get_image_blob_from_db(user_id)
-    print("Получена команда description, найдено изображение, идем в LLM")
-    description = await get_description_for_image(image_bytes)
-    await callback.message.answer(f"Описание фото:\n{description}")
-    print(f"Описание фото:\n{description}")
+    image_bytes = await database.get_image_blob(user_id)
+    if image_bytes is None:
+        await callback.message.answer("Изображение для вашего user_id не найдено в базе данных.")
+    else:
+        description = await get_description_for_image(image_bytes)
+        await callback.message.answer(f"Описание фото:\n{description}")
     await callback.answer()
 
 # @router.callback_query(F.data == 'add_context')
@@ -95,11 +96,15 @@ async def description(callback:CallbackQuery):
 
     
 async def main():
+    await database.connect()  # одно подключение при старте бота
 
     dp = Dispatcher()
-
     dp.include_router(router)
-    await dp.start_polling(bot)
+
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await database.close()  # корректное закрытие подключения при завершении
 
 if __name__ == "__main__":
 
