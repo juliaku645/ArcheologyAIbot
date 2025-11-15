@@ -90,6 +90,7 @@ async def get_description_for_image(base64_image):
 
 
 async def main():
+
     user_id = database.select_user_id()
     image_bytes = await database.get_image_blob(user_id)  # await важен
     if image_bytes is None:
@@ -97,6 +98,7 @@ async def main():
         return
     description = await get_description_for_image(image_bytes)
     print(description)
+     # Сохраняем текст описания в БД
 
 if __name__ == "__main__":
     asyncio.run(main())

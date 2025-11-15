@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, F, types, Router
 from aiogram.filters import CommandStart
 from dotenv import load_dotenv
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
@@ -34,7 +34,6 @@ class Form(StatesGroup):
 async def cmd_start(message: Message,state: FSMContext):
     await message.answer("Привет! Отправь мне сообщение с картинкой")
     await state.set_state(Form.waiting_for_photo)
-    # print(f'state = {state.get_state()}')
 
 
 
@@ -81,19 +80,19 @@ async def description(callback:CallbackQuery):
         await callback.message.answer(f"Описание фото:\n{description}")
     await callback.answer()
 
-@router.callback_query(F.data == 'add_context')
-async def add_context(callback:CallbackQuery):
-    user_id = callback.from_user.id  # Получаем user_id из callback
-    print(f"Получена команда add_context  от пользователя {user_id}")
-    message = await callback.message
-    await message.answer("Отправь мне дополнительный контекст")
-
-    print("Отправлено текстовое сообщение  пользователю")
-
-
-    print("Получено текстовое сообщение от пользователя")
-
-    await callback.answer()
+# @router.callback_query(F.data == 'add_context')
+# async def add_context(callback:CallbackQuery):
+#     user_id = callback.from_user.id  # Получаем user_id из callback
+#     print(f"Получена команда add_context  от пользователя {user_id}")
+#     message = await callback.message
+#     await message.answer("Отправь мне дополнительный контекст")
+#
+#     print("Отправлено текстовое сообщение  пользователю")
+#
+#
+#     print("Получено текстовое сообщение от пользователя")
+#
+#     await callback.answer()
 
     
 async def main():
