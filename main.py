@@ -64,6 +64,7 @@ async def handle_photo(message: types.Message, state: FSMContext, text=None):
     print("Отправляем ответное сообщение")
     await message.answer("Выберите действие:", reply_markup=kb.keyboard)
     print("Ответное сообщение отправлено")
+#async def - аналогичная handle photo, которая сохраняет контекст в БД
 
 
 
@@ -73,26 +74,29 @@ async def description(callback:CallbackQuery):
     user_id = callback.from_user.id  # Получаем user_id из callback
     print(f"Получена команда description от пользователя {user_id}, ищем изображение")
     image_bytes = await database.get_image_blob(user_id)
+    
     if image_bytes is None:
         await callback.message.answer("Изображение для вашего user_id не найдено в базе данных.")
     else:
         description = await get_description_for_image(image_bytes)
+
         await callback.message.answer(f"Описание фото:\n{description}")
     await callback.answer()
+#
 
-# @router.callback_query(F.data == 'add_context')
-# async def add_context(callback:CallbackQuery):
-#     user_id = callback.from_user.id  # Получаем user_id из callback
-#     print(f"Получена команда add_context  от пользователя {user_id}")
-#     message = await callback.message
-#     await message.answer("Отправь мне дополнительный контекст")
-#
-#     print("Отправлено текстовое сообщение  пользователю")
-#
-#
-#     print("Получено текстовое сообщение от пользователя")
-#
-#     await callback.answer()
+@router.callback_query(F.data == 'add_context')
+async def add_context(callback:CallbackQuery):
+    user_id = callback.from_user.id  # Получаем user_id из callback
+    print(f"Получена команда add_context  от пользователя {user_id}")
+    await callback.message.answer("Отправь мне дополнительный контекст")
+    print("Отправлено текстовое сообщение  пользователю")
+    context = await database.get_context(user_id)
+
+
+    print("Получено текстовое сообщение от пользователя")
+
+    await callback.answer()
+
 
     
 async def main():
