@@ -70,11 +70,10 @@ async def process_image_to_llm(image_bytes, system_prompt, user_prompt, context=
 
 
 
-async def get_description_for_image(base64_image):
+async def get_description_for_image(base64_image, user_context=None):
 
     system_prompt = os.getenv('SYSTEM_PROMPT')
-    # system_prompt = ''
-    user_prompt = "Опиши, что ты видишь на этом изображении."
+    user_prompt = user_context.get()
     context = [
         {"role": "user", "content": "Я хочу узнать больше об этом месте."},
         {"role": "assistant", "content": "Хорошо, что вы хотите знать?"}
@@ -93,10 +92,11 @@ async def main():
 
     user_id = database.select_user_id()
     image_bytes = await database.get_image_blob(user_id)  # await важен
+    user_context = await database.get_context(user_id)
     if image_bytes is None:
         print("Изображение не найдено в базе данных")
         return
-    description = await get_description_for_image(image_bytes)
+    description = await get_description_for_image(image_bytes,user_context)
     print(description)
      # Сохраняем текст описания в БД
 
