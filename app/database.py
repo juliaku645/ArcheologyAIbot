@@ -16,14 +16,14 @@ class Database:
     async def close(self):
         await self.db.close()
 
-    async def save_or_update_image(self, user_id: int, image_bytes: bytes):
+    async def save_or_update_image(self, user_id: int, image_bytes: bytes,context: str=None):
         async with self.db_lock:
             async with self.db.execute("SELECT 1 FROM images WHERE user_id=?", (user_id,)) as cursor:
                 exists = await cursor.fetchone()
             if exists:
-                await self.db.execute("UPDATE images SET photo=? WHERE user_id=?", (image_bytes, user_id))
+                await self.db.execute("UPDATE images SET photo=?, context=? WHERE user_id=?", (image_bytes, context, user_id))
             else:
-                await self.db.execute("INSERT INTO images (user_id,  photo) VALUES (?, ?, ?)", (user_id, image_bytes))
+                await self.db.execute("INSERT INTO images (user_id,  photo, context) VALUES (?, ?, ?)", (user_id, image_bytes, context))
             await self.db.commit()
     async def update_text(self, user_id: int, context: str):
         async with self.db_lock:
@@ -32,7 +32,7 @@ class Database:
             if exists:
                 await self.db.execute("UPDATE images SET context=? WHERE user_id=?",(context,user_id))
             else:
-                await self.db.execute("INSERT INTO images (user_id, context) VALUES (?, ?, ?)",
+                await self.db.execute("INSERT INTO images (user_id, context) VALUES (?, ?)",
                                       (user_id, context))
             await self.db.commit()
             print("Текст сохранен в БД")
