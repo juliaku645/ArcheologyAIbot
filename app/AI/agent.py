@@ -73,7 +73,7 @@ async def process_image_to_llm(image_bytes, system_prompt, user_prompt, context=
 async def get_description_for_image(base64_image, user_context=None):
 
     system_prompt = os.getenv('SYSTEM_PROMPT')
-    user_prompt = user_context.get()
+    user_prompt = user_context
     context = [
         {"role": "user", "content": "Я хочу узнать больше об этом месте."},
         {"role": "assistant", "content": "Хорошо, что вы хотите знать?"}
