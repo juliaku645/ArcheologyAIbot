@@ -1,0 +1,251 @@
+import sqlite3
+import json
+from datetime import datetime
+import numpy as np
+import faiss
+from langchain_openai import OpenAIEmbeddings
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class ContextDB:
+    def __init__(self, db_path="context_database.db", index_path="faiss_text.index"):
+        self.db_path = db_path
+        self.index_path = index_path
+        self.text_embedder = OpenAIEmbeddings(
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            model="text-embedding-3-small"
+        )
+        self.embed_dim = 1536  # для text-embedding-3-small
+
+        # Инициализация FAISS для текста
+        if os.path.exists(index_path):
+            self.index = faiss.read_index(index_path)
+        else:
+            self.index = faiss.IndexFlatL2(self.embed_dim)
+
+        self.init_database()
+
+    def init_database(self):
+        """Инициализация базы данных для контекста"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS context_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content_type TEXT NOT NULL,  -- 'image', 'text', 'product'
+                source_url TEXT,
+                title TEXT,
+                description TEXT,
+                full_text TEXT,
+                category TEXT,
+                tags TEXT,  -- JSON список тегов
+                metadata TEXT,  -- JSON с дополнительными метаданными
+                faiss_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS image_context_relations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                image_faiss_id INTEGER,
+                context_entry_id INTEGER,
+                relation_type TEXT,  -- 'description', 'metadata', 'catalog_info'
+                confidence_score REAL,
+                FOREIGN KEY (context_entry_id) REFERENCES context_entries (id)
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+
+    async def add_text_context(self, text, source_url, title=None, description=None,
+                             category=None, tags=None, metadata=None):
+        """Добавление текстового контекста"""
+        # Векторизация текста
+        vector = await self.text_embedder.aembed_query(text)
+        vector_np = np.array(vector, dtype="float32")
+
+        # Добавление в FAISS
+        faiss_id = self.index.ntotal
+        self.index.add(vector_np.reshape(1, -1))
+
+        # Сохранение в SQLite
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        tags_json = json.dumps(tags) if tags else None
+        metadata_json = json.dumps(metadata) if metadata else None
+
+        cursor.execute('''
+            INSERT INTO context_entries
+            (content_type, source_url, title, description, full_text, category, tags, metadata, faiss_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', ('text', source_url, title, description, text, category, tags_json, metadata_json, faiss_id))
+
+        conn.commit()
+        conn.close()
+
+        # Сохранение FAISS индекса
+        faiss.write_index(self.index, self.index_path)
+
+        print(f"✓ Текстовый контекст добавлен: {title} (ID: {faiss_id})")
+        return faiss_id
+
+    async def add_image_context(self, image_faiss_id, description, website_context,
+                              source_url, category=None, metadata=None):
+        """Добавление контекста для изображения"""
+        # Комбинируем описание и контекст для векторизации
+        combined_text = f"{description}. {website_context}"
+        vector = await self.text_embedder.aembed_query(combined_text)
+        vector_np = np.array(vector, dtype="float32")
+
+        # Добавление в FAISS
+        faiss_id = self.index.ntotal
+        self.index.add(vector_np.reshape(1, -1))
+
+        # Сохранение в SQLite
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        metadata_json = json.dumps(metadata) if metadata else None
+
+        cursor.execute('''
+            INSERT INTO context_entries
+            (content_type, source_url, title, description, full_text, category, metadata, faiss_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', ('image_context', source_url, f"Context for image {image_faiss_id}",
+              description, combined_text, category, metadata_json, faiss_id))
+
+        context_entry_id = cursor.lastrowid
+
+        # Создание связи с изображением
+        cursor.execute('''
+            INSERT INTO image_context_relations
+            (image_faiss_id, context_entry_id, relation_type, confidence_score)
+            VALUES (?, ?, ?, ?)
+        ''', (image_faiss_id, context_entry_id, 'description', 1.0))
+
+        conn.commit()
+        conn.close()
+
+        faiss.write_index(self.index, self.index_path)
+
+        print(f"✓ Контекст для изображения {image_faiss_id} добавлен")
+        return faiss_id
+
+    async def search_similar_context(self, query_text, top_k=5):
+        """Поиск похожего контекста по текстовому запросу"""
+        vector = await self.text_embedder.aembed_query(query_text)
+        vector_np = np.array(vector, dtype="float32")
+
+        # Поиск в FAISS
+        D, I = self.index.search(vector_np.reshape(1, -1), top_k)
+
+        # Получение данных из SQLite
+        results = []
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        for i in I[0]:
+            if i < self.index.ntotal:
+                cursor.execute('''
+                    SELECT content_type, source_url, title, description, full_text,
+                           category, tags, metadata, faiss_id
+                    FROM context_entries WHERE faiss_id = ?
+                ''', (int(i),))
+
+                result = cursor.fetchone()
+                if result:
+                    results.append({
+                        'content_type': result[0],
+                        'source_url': result[1],
+                        'title': result[2],
+                        'description': result[3],
+                        'full_text': result[4],
+                        'category': result[5],
+                        'tags': json.loads(result[6]) if result[6] else [],
+                        'metadata': json.loads(result[7]) if result[7] else {},
+                        'faiss_id': result[8],
+                        'distance': D[0][len(results)] if len(results) < len(D[0]) else 0
+                    })
+
+        conn.close()
+        return results
+
+    def get_context_for_image(self, image_faiss_id):
+        """Получение контекста для конкретного изображения"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT ce.title, ce.description, ce.full_text, ce.source_url, ce.category, ce.metadata
+            FROM context_entries ce
+            JOIN image_context_relations icr ON ce.id = icr.context_entry_id
+            WHERE icr.image_faiss_id = ?
+        ''', (image_faiss_id,))
+
+        results = cursor.fetchall()
+        conn.close()
+
+        contexts = []
+        for result in results:
+            contexts.append({
+                'title': result[0],
+                'description': result[1],
+                'full_text': result[2],
+                'source_url': result[3],
+                'category': result[4],
+                'metadata': json.loads(result[5]) if result[5] else {}
+            })
+
+        return contexts
+
+    def get_statistics(self):
+        """Получение статистики базы данных"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM context_entries")
+        total_entries = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM image_context_relations")
+        total_relations = cursor.fetchone()[0]
+
+        cursor.execute("SELECT content_type, COUNT(*) FROM context_entries GROUP BY content_type")
+        by_type = cursor.fetchall()
+
+        conn.close()
+
+        return {
+            'total_entries': total_entries,
+            'total_relations': total_relations,
+            'entries_by_type': dict(by_type),
+            'faiss_vectors': self.index.ntotal
+        }
+
+# Пример использования
+async def main():
+    db = ContextDB()
+
+    # Добавление текстового контекста
+    await db.add_text_context(
+        text="Горный Алтай - популярное направление для туризма...",
+        source_url="https://example.com/altai-travel",
+        title="Туризм на Алтае",
+        description="Информация о путешествиях по Горному Алтаю",
+        category="travel",
+        tags=["Алтай", "туризм", "горы"]
+    )
+
+    # Поиск контекста
+    results = await db.search_similar_context("горный туризм")
+    print(f"Найдено контекстов: {len(results)}")
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
