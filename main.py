@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-from app.AI.agent import get_description_for_image
+from app.AI.agent import get_description_for_image, get_description_for_image_test
 from app.database import Database
 import app.keyboards as kb
 load_dotenv()
@@ -65,20 +65,37 @@ async def handle_photo(message: types.Message, state: FSMContext, context=None):
 
 
 @router.callback_query(F.data == 'description')
-
-async def description(callback:CallbackQuery):
+async def description(callback:CallbackQuery , state: FSMContext):
     user_id = callback.from_user.id  # Получаем user_id из callback
+
     print(f"Получена команда description от пользователя {user_id}, ищем изображение")
     image_bytes = await database.get_image_blob(user_id)
-    
     if image_bytes is None:
-        await callback.message.answer("Изображение для вашего user_id не найдено в базе данных.")
-    else:
-        description = await get_description_for_image(image_bytes)
+        await callback.message.answer("Изображение не найдено в базе данных.")
+        await state.clear()
+        return
 
-        await callback.message.answer(f"Описание фото:\n{description}")
+    context_text = await database.get_context(user_id)
+    # Вызываем функцию генерации описания с фото и контекстом
+    description = await get_description_for_image_test(image_bytes, context_text)
+    print(f"Описание для пользователя {user_id}: {description}")
+    await callback.message.answer(f"Описание фото :\n{description}")
+    # сохраняем в БД ответ
+    await database.save_description(user_id,context_text,image_bytes, description)
+    print("Данные сохранены в БД")
+    await callback.message.answer('Описание фото составлено. Теперь вы можете отправить новую фотографию для описания, нажав кнопку ниже ',reply_markup=kb.keyboard1)
+    print("Сообщение отправлено пользователю")
+    await state.set_state(Form.waiting_for_action)
     await callback.answer()
 
+
+@router.callback_query(F.data =="send_photo")
+async def send_photo(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    print(f"Получена команда add_context от пользователя {user_id}")
+    await callback.message.answer("Отправьте новое фото")
+    await state.set_state(Form.waiting_for_photo)
+    await callback.answer()
 
 
 @router.callback_query(F.data == 'add_context')
@@ -95,19 +112,13 @@ async def process_context(message: Message, state: FSMContext):
     context_text = message.text
     print(f"Получено текстовое сообщение от пользователя {user_id}: {context_text}")
     await database.update_text(user_id, context_text)  # Сохраняем контекст в базе
-    await message.answer("Контекст сохранён")
-    image_bytes = await database.get_image_blob(user_id)
-    if image_bytes is None:
-        await message.answer("Изображение не найдено в базе данных.")
-        await state.clear()
-        return
-
-        # Вызываем функцию генерации описания с фото и контекстом
-    description = await get_description_for_image(image_bytes, context_text)
-    print(f"Описание для пользователя {user_id}: {description}")
-    await message.answer(f"Описание фото с учётом контекста:\n{description}")
+    print("Контекст сохранён")
+    await state.set_state(Form.waiting_for_action)
+    await message.answer("Выберите действие:", reply_markup=kb.keyboard)
+    print("Ответное сообщение отправлено")
 
     await state.clear()
+
 
 
     
