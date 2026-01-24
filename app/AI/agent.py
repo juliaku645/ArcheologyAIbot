@@ -69,6 +69,9 @@ async def process_image_to_llm(image_bytes, system_prompt, user_prompt, context=
     return result.content  # Возвращаем ответ модели
 
 
+async def get_description_for_image_test(base64_image, user_context=None):
+    print(f"Картинка:{base64_image is not None}, user_context: {user_context} ")
+    return "Очень красивая картинка"
 
 async def get_description_for_image(base64_image, user_context=None):
 
