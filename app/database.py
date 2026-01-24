@@ -1,7 +1,6 @@
 import aiosqlite
 import asyncio
 DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
-db_lock = asyncio.Lock()
 class Database:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -37,16 +36,9 @@ class Database:
             await self.db.commit()
             print("Текст сохранен в БД")
 
-    async def select_user_id(self, user_id: int):
-        async with self.db_lock:
-            async with self.db.execute("SELECT * FROM images WHERE user_id=?", (user_id,)) as cursor:
-                row = await cursor.fetchone()
-                return row
-
     async def get_image_blob(self, user_id: int):
-        # Чтение можно  не блокировать, для безопасности - с lock
         async with self.db_lock:
-            async with self.db.execute("SELECT photo FROM images WHERE user_id=?", (user_id,)) as cursor:
+            async with self.db.execute("SELECT photo FROM images WHERE user_id = ?", (user_id,)) as cursor:
                 row = await cursor.fetchone()
                 if row:
                     return row[0]
@@ -54,11 +46,9 @@ class Database:
 
     async def get_context(self, user_id: int):
         async with self.db_lock:
-            async with self.db.execute("SELECT context FROM images WHERE user_id=?", (user_id,)) as cursor:
+            async with self.db.execute("SELECT context FROM images WHERE user_id = ?", (user_id,)) as cursor:
                 row = await cursor.fetchone()
-                if row:
-                    return row[0]
-                return None
+                return row[0] or "" if row else ""
 
     async def save_description(self, user_id: int, context_text: str, image_bytes: bytes,description: str):
         async with self.db_lock:
@@ -66,6 +56,7 @@ class Database:
                 await self.db.commit()
 
 
-
-
-#
+    async def select_user_id(self, user_id: int):
+        async with self.db_lock:
+            async with self.db.execute("SELECT * FROM images WHERE user_id = ?", (user_id,)) as cursor:
+                return await cursor.fetchone()
