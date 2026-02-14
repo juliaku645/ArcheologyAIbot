@@ -4,10 +4,6 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 import asyncio
-from app.database import Database
-DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
-database = Database(DATABASE_PATH)
-
 
 load_dotenv()
 load_dotenv(encoding='utf-8-sig')
@@ -91,21 +87,6 @@ async def get_description_for_image(base64_image, user_context=None):
         print(f"Произошла ошибка: {e}")
 
 
-async def main():
-
-    user_id = database.select_user_id()
-    image_bytes = await database.get_image_blob(user_id)  # await важен
-    user_context = await database.get_context(user_id)
-    if image_bytes is None:
-        print("Изображение не найдено в базе данных")
-        return
-    description = await get_description_for_image(image_bytes,user_context)
-    print(description)
-     # Сохраняем текст описания в БД
-
-if __name__ == "__main__":
-    asyncio.run(main())
-#
 
 
 

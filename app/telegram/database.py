@@ -1,6 +1,6 @@
 import aiosqlite
 import asyncio
-DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
+DATABASE_PATH = r"/app/telegram/images_blob.db"
 class Database:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -54,6 +54,32 @@ class Database:
         async with self.db_lock:
             async with self.db.execute("INSERT INTO LLM_replies (user_id, context, photo,description) VALUES (?, ?, ?, ?)", (user_id, context_text,image_bytes, description)):
                 await self.db.commit()
+
+    async def save_geo_with_address(self, user_id: int, latitude: float, longitude: float, full_address: str):
+
+        async with self.db_lock:
+            # Проверяем существование записи
+            async with self.db.execute("SELECT 1 FROM images WHERE user_id=?", (user_id,)) as cursor:
+                exists = await cursor.fetchone()
+
+            if exists:
+                # Обновляем существующую запись
+                await self.db.execute(
+                    """UPDATE images 
+                       SET latitude=?, longitude=?, full_address=?, updated_at=CURRENT_TIMESTAMP 
+                       WHERE user_id=?""",
+                    (latitude, longitude, full_address, user_id)
+                )
+            else:
+                # Создаем новую запись
+                await self.db.execute(
+                    """INSERT INTO images (user_id, latitude, longitude, full_address, created_at) 
+                       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                    (user_id, latitude, longitude, full_address)
+                )
+
+            await self.db.commit()
+            print(f"Геоданные сохранены для user_id={user_id}: {latitude}, {longitude}")
 
 
     async def select_user_id(self, user_id: int):

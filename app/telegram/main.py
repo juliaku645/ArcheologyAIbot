@@ -7,14 +7,16 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from dadata import Dadata
-from app.AI.agent import get_description_for_image, get_description_for_image_test
-from app.database import Database
-import app.keyboards as kb
-from app.keyboards import geo_keyboard
+from AI.agent import get_description_for_image, get_description_for_image_test
+from database import Database
+import keyboards as kb
+from keyboards import geo_keyboard
 from aiogram.exceptions import TelegramBadRequest
 
+from database import DATABASE_PATH
+
 load_dotenv()
-DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
+# DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
 database = Database(DATABASE_PATH)
 DADATA_TOKEN = os.getenv("DADATA_TOKEN")
 
@@ -210,6 +212,26 @@ async def process_geo(message: Message, state: FSMContext):
     await state.update_data(action_message_id=action_msg.message_id)
     await state.clear()
 
+
+
+async def test_agent():
+
+    user_id = database.select_user_id()
+    image_bytes = await database.get_image_blob(user_id)  # await важен
+    user_context = await database.get_context(user_id)
+    if image_bytes is None:
+        print("Изображение не найдено в базе данных")
+        return
+    description = await get_description_for_image(image_bytes,user_context)
+    print(description)
+     # Сохраняем текст описания в БД
+
+# if __name__ == "__main__":
+#     asyncio.run(test_agent())
+# #
+
+
+
 async def main():
     await database.connect()  # одно подключение при старте бота
 
@@ -224,3 +246,6 @@ async def main():
 if __name__ == "__main__":
 
     asyncio.run(main())
+
+
+
