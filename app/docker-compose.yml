@@ -1,0 +1,38 @@
+version: "3.9"
+name: ArcheologyAIbot
+
+services:
+  tg-service:
+    build:
+      context: .
+      dockerfile: ./telegram/Dockerfile
+    container_name: archeology-tg-backend
+    environment:
+      DB_PATH: app/database/images_blob.db  # Путь к файлу SQLite (относительно)
+      DADATA_TOKEN: ${DADATA_TOKEN}
+      TG_TOKEN: ${TG_TOKEN}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./telegram/database:app/database
+    networks:
+      - ArcheologyAIbot-network
+    restart: unless-stopped
+
+#  ai-service:
+#    image: nginx:alpine
+#    container_name: chess-frontend
+#    ports:
+#      - "80:80"
+#    volumes:
+#      - ./front_service/html:/usr/share/nginx/html
+#      - ./front_service/nginx.conf:/etc/nginx/conf.d/default.conf
+#    networks:
+#      - chess-desk-network
+#    restart: unless-stopped
+#    depends_on:
+#      - chess-backend-service
+
+networks:
+  ArcheologyAIbot-network:
+    external: false

@@ -1,6 +1,11 @@
 import aiosqlite
 import asyncio
-DATABASE_PATH = r"/app/telegram/images_blob.db"
+import os
+from dotenv import load_dotenv
+# DATABASE_PATH = r"C:\projects\ArcheologyAIbot\app\telegram\images_blob.db"
+load_dotenv()
+
+DATABASE_PATH = os.getenv("DB_PATH")
 class Database:
     def __init__(self, db_path):
         self.db_path = db_path

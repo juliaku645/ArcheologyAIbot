@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from dadata import Dadata
-from AI.agent import get_description_for_image, get_description_for_image_test
+from app.AI.agent import get_description_for_image, get_description_for_image_test
 from database import Database
 import keyboards as kb
 from keyboards import geo_keyboard
@@ -104,7 +104,7 @@ async def description(callback:CallbackQuery , state: FSMContext):
 
     context_text = await database.get_context(user_id)
     # Вызываем функцию генерации описания с фото и контекстом
-    description = await get_description_for_image_test(image_bytes, context_text)
+    description = await get_description_for_image(image_bytes, context_text)
     print(f"Описание для пользователя {user_id}: {description}")
     await callback.message.answer(f"Описание фото :\n{description}")
     # сохраняем в БД ответ
