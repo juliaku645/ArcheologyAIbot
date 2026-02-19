@@ -1,0 +1,163 @@
+image_vector_db.py
+import os
+import io
+import numpy as np
+import faiss
+from PIL import Image
+from sentence_transformers import SentenceTransformer
+import json
+import sqlite3
+from datetime import datetime
+
+class ImageVectorDB:
+    def __init__(self, db_path="image_vectors.db", index_path="faiss_image.index"):
+        self.db_path = db_path
+        self.index_path = index_path
+        self.clip_model = SentenceTransformer('clip-ViT-B-32')
+        self.embed_dim = 512
+
+        # Инициализация FAISS
+        if os.path.exists(index_path):
+            self.index = faiss.read_index(index_path)
+        else:
+            self.index = faiss.IndexFlatL2(self.embed_dim)
+
+        # Инициализация SQLite
+        self.init_sqlite()
+
+    def init_sqlite(self):
+        """Инициализация SQLite базы для метаданных изображений"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                image_source TEXT UNIQUE,
+                description TEXT,
+                website_context TEXT,
+                faiss_id INTEGER,
+                vector BLOB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+
+    def image_to_vector(self, image_bytes):
+        """Конвертация изображения в вектор"""
+        try:
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            vec = self.clip_model.encode(image, convert_to_numpy=True, normalize_embeddings=True)
+            return vec.astype("float32")
+        except Exception as e:
+            print(f"Ошибка векторизации изображения: {e}")
+            return None
+
+    def add_image(self, image_bytes, source, description=None, website_context=None):
+        """Добавление изображения в базу"""
+        vector = self.image_to_vector(image_bytes)
+        if vector is None:
+            return False
+
+        # Добавляем в FAISS
+        faiss_id = self.index.ntotal
+        self.index.add(vector.reshape(1, -1))
+
+        # Сохраняем в SQLite
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT OR REPLACE INTO images
+            (image_source, description, website_context, faiss_id, vector)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (source, description, website_context, faiss_id, vector.tobytes()))
+
+        conn.commit()
+        conn.close()
+
+        # Сохраняем FAISS индекс
+        faiss.write_index(self.index, self.index_path)
+
+        print(f"✓ Изображение добавлено: {source} (ID: {faiss_id})")
+        return True
+
+    def search_similar_images(self, image_bytes, top_k=5):
+        """Поиск похожих изображений"""
+        query_vector = self.image_to_vector(image_bytes)
+        if query_vector is None:
+            return []
+
+        # Поиск в FAISS
+        D, I = self.index.search(query_vector.reshape(1, -1), top_k)
+
+        # Получение метаданных из SQLite
+        results = []
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        for i in I[0]:
+            if i < self.index.ntotal:
+                cursor.execute('''
+                    SELECT image_source, description, website_context
+                    FROM images WHERE faiss_id = ?
+                ''', (int(i),))
+
+                result = cursor.fetchone()
+                if result:
+                    results.append({
+                        'source': result[0],
+                        'description': result[1],
+                        'website_context': result[2],
+                        'faiss_id': int(i),
+                        'distance': D[0][len(results)] if len(results) < len(D[0]) else 0
+                    })
+
+        conn.close()
+        return results
+
+    def get_image_count(self):
+        """Получение количества изображений в базе"""
+        return self.index.ntotal
+
+    def get_image_by_id(self, faiss_id):
+        """Получение изображения по ID"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT image_source, description, website_context
+            FROM images WHERE faiss_id = ?
+        ''', (faiss_id,))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            return {
+                'source': result[0],
+                'description': result[1],
+                'website_context': result[2]
+            }
+        return None
+
+# Пример использования
+if __name__ == "__main__":
+    db = ImageVectorDB()
+
+    # Пример добавления изображения
+    with open("example.jpg", "rb") as f:
+        image_bytes = f.read()
+
+    db.add_image(
+        image_bytes=image_bytes,
+        source="https://example.com/image1.jpg",
+        description="Красивый пейзаж с горами",
+        website_context="Фотография из альбома путешествий по Алтаю"
+    )
+
+    # Пример поиска
+    similar = db.search_similar_images(image_bytes)
+    print(f"Найдено похожих: {len(similar)}")
