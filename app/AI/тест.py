@@ -162,6 +162,7 @@ class RAGImageSystem:
             ])
         ]
 
+
         response = await self.llm.ainvoke(messages)
         return response.content
 
