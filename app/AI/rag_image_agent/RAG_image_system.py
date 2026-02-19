@@ -1,4 +1,3 @@
-import asyncio
 import aiosqlite
 import hashlib
 import base64
@@ -38,7 +37,7 @@ class RAGImageSystem:
         if config.openai_api_key:
             self.llm = ChatOpenAI(
                 model="gpt-4-vision-preview",
-                api_key=config.openai_api_key,
+                api_key=config.opsenai_api_key,
                 max_tokens=300
             )
         else:

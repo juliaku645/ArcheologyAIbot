@@ -1,11 +1,10 @@
 import asyncio
 import sqlite3
-import os
-from your_first_code import RAGImageSystem, Config
-from your_second_code import GoskatalogParser  # если оформишь как класс
+
+from app.AI.rag_image_agent.RAG_image_system import RAGImageSystem, Config
 
 
-async def sync_all():
+async def sync_goskatalog_all():
     # 1. Загружаем RAG систему
     rag = RAGImageSystem(Config())
 
@@ -36,4 +35,4 @@ async def sync_all():
 
 
 if __name__ == "__main__":
-    asyncio.run(sync_all())
+    asyncio.run(sync_goskatalog_all())
