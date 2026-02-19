@@ -3,19 +3,23 @@ import asyncio
 from aiogram import Bot, Dispatcher, F, types, Router
 from aiogram.filters import CommandStart
 from dotenv import load_dotenv
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-
-from app.AI.agent import get_description_for_image
-from app.database import insert_image_to_db, get_image_blob_from_db  #,init_db
+from dadata import Dadata
+from app.AI.agent import get_description_for_image, get_description_for_image_test
+from app.database import Database
 import app.keyboards as kb
+from app.keyboards import geo_keyboard
+from aiogram.exceptions import TelegramBadRequest
+
 load_dotenv()
-
-
+DATABASE_PATH = "C:\\Users\\User\\ArcheologyAIbot\\images_blob.db"
+database = Database(DATABASE_PATH)
+DADATA_TOKEN = os.getenv("DADATA_TOKEN")
 
 BOT_TOKEN = os.getenv("TG_TOKEN")
-
+dadata = Dadata(DADATA_TOKEN)
 
 bot = Bot(token=BOT_TOKEN)
 router = Router()
@@ -31,16 +35,31 @@ class Form(StatesGroup):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message,state: FSMContext):
-    await message.answer("Привет! Отправь мне сообщение с картинкой")
+    welcome_text = (
+        "🤖 <b>ArcheologyAI</b> — ИИ-анализ археологических находок\n\n"
+        
+        "🔍 <b>Функции бота:</b>\n"
+        "• <b>Получить описание</b> — бот создаст научное описание находки\n"
+        "• <b>Отправить новое фото</b> — заменить текущее изображение\n"
+        "• <b>Место раскопок</b> — добавить координаты места находки\n"
+        "• <b>Добавить контекст</b> — прислать дополнительную информацию о находке\n\n"
+        
+        "📸 <b>Отправьте фото</b> для анализа\n\n"
+        
+        "✅ <b>Критерии для качественного фото:</b>\n"
+        "• <b>Фон:</b> однотонный (белый/серый), без отвлекающих объектов\n"
+        "• <b>Линейка:</b> рядом с находкой (реальная шкала в см)\n"
+        "• <b>Освещение:</b> равномерное, без теней и бликов\n\n"
+    )
+    await message.answer(welcome_text, parse_mode="HTML")
     await state.set_state(Form.waiting_for_photo)
-    # print(f'state = {state.get_state()}')
 
 
 
 @router.message(
     Form.waiting_for_photo
 )
-async def handle_photo(message: types.Message, state: FSMContext, text=None):
+async def handle_photo(message: types.Message, state: FSMContext, context=None):
     photo = message.photo[-1]
     file_id = photo.file_id
     user_id = message.from_user.id
@@ -54,72 +73,153 @@ async def handle_photo(message: types.Message, state: FSMContext, text=None):
     file_bytes_io = await message.bot.download_file(file_info.file_path)
     image_bytes = file_bytes_io.read()
 
-    await insert_image_to_db(user_id, text, image_bytes)
-    print(f'ФОТО: {image_bytes} сохранено в БД')
-
-
-
-    # keyboard = InlineKeyboardMarkup(inline_keyboard=[
-    #     [
-    #         InlineKeyboardButton(text="Описание", callback_data="description"),
-    #         InlineKeyboardButton(text="Добавить контекст", callback_data="add_context"),
-    #         InlineKeyboardButton(text="Геоточка", callback_data="geo_point"),
-    #     ]
-    # ])
+    await database.save_or_update_image(user_id, image_bytes, context)
+    print(f'ФОТО сохранено в БД')
 
     await state.set_state(Form.waiting_for_action)
     print("state = "+str(state))
     print("Отправляем ответное сообщение")
-    await message.answer("Выберите действие:", reply_markup=kb.keyboard)
+    action_msg =await message.answer("Выберите действие:", reply_markup=kb.keyboard)
     print("Ответное сообщение отправлено")
-
-
+    await state.update_data(action_message_id=action_msg.message_id)
 
 @router.callback_query(F.data == 'description')
+async def description(callback:CallbackQuery , state: FSMContext):
+    user_id = callback.from_user.id  # Получаем user_id из callback
+    data = await state.get_data()
+    action_message_id = data.get('action_message_id')
+    if action_message_id:
+        try:
+            await callback.message.bot.delete_message(callback.message.chat.id, action_message_id)
+        except TelegramBadRequest:
+            print("Не удалось удалить сообщение с действиями")
+    print(f"Получена команда description от пользователя {user_id}, ищем изображение")
+    image_bytes = await database.get_image_blob(user_id)
+    if image_bytes is None:
+        await callback.message.answer("Изображение не найдено в базе данных.")
+        await state.clear()
+        return
 
-async def description(callback:CallbackQuery):
-    print("Получена команда description, ищем изображение")
-    image_bytes = await get_image_blob_from_db('1409137510')
-    print("Получена команда description, найдено изображение, идем в LLM")
-    description = await get_description_for_image(image_bytes)
-    await callback.message.answer(f"Описание фото:\n{description}")
-    print(f"Описание фото:\n{description}")
+    context_text = await database.get_context(user_id)
+    # Вызываем функцию генерации описания с фото и контекстом
+    description = await get_description_for_image_test(image_bytes, context_text)
+    print(f"Описание для пользователя {user_id}: {description}")
+    await callback.message.answer(f"Описание фото :\n{description}")
+    # сохраняем в БД ответ
+    await database.save_description(user_id,context_text,image_bytes, description)
+    print("Данные сохранены в БД")
+    await callback.message.answer('Описание фото составлено. Теперь вы можете отправить новую фотографию для описания, нажав кнопку ниже ',reply_markup=kb.keyboard1)
+    print("Сообщение отправлено пользователю")
+    await state.set_state(Form.waiting_for_action)
     await callback.answer()
 
 
+@router.callback_query(F.data =="send_photo")
+async def send_photo(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    data = await state.get_data()
+    action_msg_id = data.get('action_message_id')
+    if action_msg_id:
+        try:
+            await callback.message.bot.delete_message(callback.message.chat.id, action_msg_id)
+        except TelegramBadRequest:
+            pass
+    print(f"Получена команда add_context от пользователя {user_id}")
+    await callback.message.answer("Отправьте новое фото")
+    await state.set_state(Form.waiting_for_photo)
+    await callback.answer()
 
 
+@router.callback_query(F.data == 'add_context')
+async def add_context(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    data = await state.get_data()
+    action_msg_id = data.get('action_message_id')
+    if action_msg_id:
+        try:
+            await callback.message.bot.delete_message(callback.message.chat.id, action_msg_id)
+        except TelegramBadRequest:
+            pass
+    print(f"Получена команда add_context от пользователя {user_id}")
+    await callback.message.answer("Отправь мне дополнительный контекст")
+    await state.set_state(Form.waiting_for_context)
+    await callback.answer()
 
-#     elif action == "add_context":
-#         await callback.message.answer("Отправьте дополнительный контекст к фото.")
-#         await state.set_state(Form.waiting_for_context)
-#
-#     elif action == "geo_point":
-#         await callback.message.answer("Пожалуйста, отправьте геоточку (местоположение).")
-#
-#
-#     await callback.answer()
-#
-# @router.message(F.state == Form.waiting_for_context)
-# async def handle_context(message: Message, state: FSMContext):
-#     print(f'Получено waiting_for_context')
-#     context = message.text
-#     data = await state.get_data()
-#     file_id = data.get("file_id")
-#     user_id = message.from_user.id
-#
-#     # TODO: сохранить контекст в БД
-#     # save_context_to_db(user_id, file_id, context_text)
+@router.message(Form.waiting_for_context)
+async def process_context(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    context_text = message.text
+    print(f"Получено текстовое сообщение от пользователя {user_id}: {context_text}")
+    await database.update_text(user_id, context_text)  # Сохраняем контекст в базе
+    print("Контекст сохранён")
+    await state.set_state(Form.waiting_for_action)
+    await message.answer("Контекст сохранен!",
+         reply_markup=kb.keyboard)
+    print("Ответное сообщение отправлено")
+    await state.clear()
 
-    
+@router.callback_query(F.data == 'geo_point')
+async def geo_point(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    print(f"Получена команда от пользователя {user_id}")
+    data = await state.get_data()
+    action_msg_id = data.get('action_message_id')
+    if action_msg_id:
+        try:
+            await callback.message.bot.delete_message(callback.message.chat.id, action_msg_id)
+        except TelegramBadRequest:
+            pass
+    await callback.message.answer("Отправьте место обнаружения находки", reply_markup=kb.geo_keyboard)
+    print("Пользователь отправил геоточку")
+    await state.set_state(Form.waiting_for_geo)
+    await callback.answer()
+
+
+@router.message(Form.waiting_for_geo, F.location)
+async def process_geo(message: Message, state: FSMContext):
+    latitude = float(message.location.latitude)
+    longitude = float(message.location.longitude)
+    user_id = message.from_user.id
+
+
+    # Получаем адрес через DaData
+    try:
+        result = dadata.geolocate(name="address", lat=latitude, lon=longitude)
+        if result and len(result) > 0:
+            address = result[0]['data']['address']
+            full_address = f"{address.get('city', '')}, {address.get('street', '')} {address.get('house', '')}".strip(
+                ', ')
+        else:
+            full_address = "Адрес не определен"
+    except Exception as e:
+        print(f"Ошибка DaData: {e}")
+        full_address = "Не удалось определить адрес"
+
+    await database.save_geo_with_address(user_id, latitude, longitude, full_address)
+    # Формируем ответ с координатами и адресом
+    action_msg = await message.answer(
+
+   f"📍 Адрес: {full_address}\n"
+        f"📊 Координаты:\n"
+        f"Широта: {latitude:.6f}\n"
+        f"Долгота: {longitude:.6f}",
+        reply_markup=kb.keyboard
+    )
+
+
+    await state.update_data(action_message_id=action_msg.message_id)
+    await state.clear()
+
 async def main():
-    #init_db()
-    dp = Dispatcher()
-    # get_image_from_db()
-    # get_description_for_image()
+    await database.connect()  # одно подключение при старте бота
 
+    dp = Dispatcher()
     dp.include_router(router)
-    await dp.start_polling(bot)
+
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await database.close()  # корректное закрытие подключения при завершении
 
 if __name__ == "__main__":
 
