@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from dadata import Dadata
-from app.AI.agent import get_description_for_image, get_description_for_image_test
+from agent_proxy_service import get_description_for_image, get_description_for_image_test
 from database import Database
 import keyboards as kb
 from keyboards import geo_keyboard
@@ -23,8 +23,11 @@ DADATA_TOKEN = os.getenv("DADATA_TOKEN")
 BOT_TOKEN = os.getenv("TG_TOKEN")
 dadata = Dadata(DADATA_TOKEN)
 
+print("TOKEN " + BOT_TOKEN)
+
 bot = Bot(token=BOT_TOKEN)
 router = Router()
+
 
 
 

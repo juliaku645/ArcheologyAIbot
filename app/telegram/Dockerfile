@@ -4,7 +4,7 @@ WORKDIR /app
 
 # SQLite встроен в Python, дополнительные зависимости не требуются
 # Копирование requirements
-COPY requirements.txt .
+COPY /requirements.txt .
 
 # Установка Python зависимостей
 RUN pip install --no-cache-dir -r requirements.txt
