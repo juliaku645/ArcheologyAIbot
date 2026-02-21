@@ -35,7 +35,5 @@ async def sync_all():
     print(f"\n✅ Синхронизация завершена! Добавлено {added} новых изображений")
 
 
-
-
 if __name__ == "__main__":
     asyncio.run(sync_all())
