@@ -7,6 +7,9 @@ import hashlib
 import logging
 import time
 from typing import Optional, List, Dict
+
+from langchain_community.llms.chatglm3 import HEADERS
+
 from .database import ImageDatabase
 from .vector_db import VectorDatabase
 
@@ -144,7 +147,7 @@ class GoskatalogParser:
                     logger.debug(f"Экспонат {object_id}, изображение {image_id}: загрузка с {img_url}")
                     
                     download_start = time.time()
-                    img_resp = requests.get(img_url, timeout=10)
+                    img_resp = requests.get(img_url, timeout=10, headers=self.HEADERS)
                     download_time = time.time() - download_start
                     
                     if img_resp.status_code != 200:

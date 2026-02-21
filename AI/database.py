@@ -48,6 +48,7 @@ class ImageDatabase:
                 (image_hash, description, faiss_index_id)
             )
             await db.commit()
+            print("изображение сохранено",image_hash, description, faiss_index_id )
     
     async def get_description_by_hash(self, image_hash: str) -> Optional[str]:
         """

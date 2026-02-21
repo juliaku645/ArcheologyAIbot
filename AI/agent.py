@@ -9,6 +9,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from database import ImageDatabase
 from vector_db import VectorDatabase
 
+import asyncio
+
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -225,28 +227,26 @@ def get_description_for_image_test(image_bytes: bytes, user_context: str = None)
     agent = get_agent()
     return agent._get_description_for_image_test(image_bytes, user_context)
 
+async def main():
+    print("агент")
+    agent = Agent()
+    print("Агент создан")
+    # Пример: загрузка изображения из файла
+    with open("photo_5330049114802614883_y.jpg", "rb") as f:
+        image_bytes = f.read()
+
+    description = await agent.get_description_for_image(
+        image_bytes=image_bytes,
+        user_context="Это археологический артефакт"
+    )
+    print(f"Описание: {description}")
+
+    # Получение статистики
+    db_stats = await agent.db.get_stats()
+    vector_stats = agent.vector_db.get_stats()
+    print(f"Статистика БД: {db_stats}")
+    print(f"Статистика векторной БД: {vector_stats}")
 
 # Пример использования
 if __name__ == "__main__":
-    import asyncio
-    
-    async def main():
-        agent = Agent()
-        
-        # Пример: загрузка изображения из файла
-        with open("test_image.jpg", "rb") as f:
-            image_bytes = f.read()
-
-        description = await agent.get_description_for_image(
-            image_bytes=image_bytes,
-            user_context="Это археологический артефакт"
-        )
-        print(f"Описание: {description}")
-        
-        # Получение статистики
-        db_stats = await agent.db.get_stats()
-        vector_stats = agent.vector_db.get_stats()
-        print(f"Статистика БД: {db_stats}")
-        print(f"Статистика векторной БД: {vector_stats}")
-    
     asyncio.run(main())
