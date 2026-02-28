@@ -5,7 +5,7 @@ services:
   tg-service:
     image: tg-service:1.0.6
     env_file:
-      - ./../.env_docker
+      - .env_docker
     build:
       context: ./telegram
       dockerfile: ./Dockerfile
@@ -22,19 +22,23 @@ services:
       - ArcheologyAIbot-network
     restart: unless-stopped
 
-#  ai-service:
-#    image: nginx:alpine
-#    container_name: chess-frontend
-#    ports:
-#      - "80:80"
-#    volumes:
-#      - ./front_service/html:/usr/share/nginx/html
-#      - ./front_service/nginx.conf:/etc/nginx/conf.d/default.conf
-#    networks:
-#      - chess-desk-network
-#    restart: unless-stopped
-#    depends_on:
-#      - chess-backend-service
+  ai-service:
+    image: ai-service:1.0.0
+    env_file:
+      - .env_ai
+    build:
+      context: ./AI
+      dockerfile: ./Dockerfile
+    container_name: archeology-ai-backend
+    ports:
+      - "5000:5000"
+      - "8190:8190"
+    volumes:
+      - ./AI/database:/app/database
+      - ./AI/vector_storage:/app/vector_storage
+    networks:
+      - ArcheologyAIbot-network
+    restart: unless-stopped
 
 networks:
   ArcheologyAIbot-network:
