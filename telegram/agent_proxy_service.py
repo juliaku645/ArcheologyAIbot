@@ -71,20 +71,7 @@ async def get_description_for_image_test(base64_image, user_context=None):
 
 async def get_description_for_image(base64_image, user_context=None):
 
-    system_prompt = os.getenv('SYSTEM_PROMPT')
-    user_prompt = user_context
-    context = [
-        {"role": "user", "content": "Я хочу узнать больше об этом месте."},
-        {"role": "assistant", "content": "Хорошо, что вы хотите знать?"}
-    ]
 
-    try:
-        # You can now pass the model name as a parameter
-        response = await process_image_to_llm(base64_image, system_prompt, user_prompt, context, model_name="gpt-4o")
-        print("Ответ LLM:", response)
-        return response
-    except Exception as e:
-        print(f"Произошла ошибка: {e}")
 
 
 
