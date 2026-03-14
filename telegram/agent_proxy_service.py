@@ -82,7 +82,7 @@ async def get_description_for_image(image_bytes: bytes, user_context: Optional[s
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
     payload = {
-        "imageB64": image_b64,
+        "imageB64":image_b64,
         "userContext": user_context or ""
     }
 
