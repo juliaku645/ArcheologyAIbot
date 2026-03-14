@@ -1,8 +1,12 @@
-import base64
+
 import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
+import aiohttp
+import json
+import base64
+from typing import Optional
 import asyncio
 
 load_dotenv()
@@ -65,11 +69,84 @@ async def process_image_to_llm(image_bytes, system_prompt, user_prompt, context=
     return result.content  # Возвращаем ответ модели
 
 
-async def get_description_for_image_test(base64_image, user_context=None):
+#async def get_description_for_image_test(base64_image, user_context=None):
     print(f"Картинка:{base64_image is not None}, user_context: {user_context} ")
     return "Очень красивая картинка"
+async def get_description_for_image(image_bytes: bytes, user_context: Optional[str] = None) -> str:
+    """
+       Вызывает POST /describe на server.py через HTTP.
+       """
+    SERVER_URL = "http://localhost:5000"
 
-async def get_description_for_image(base64_image, user_context=None):
+    # Кодируем image_bytes обратно в base64
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+    payload = {
+        "imageB64": image_b64,
+        "userContext": user_context or ""
+    }
+
+    print(f"SENDING to {SERVER_URL}/describe: {len(image_bytes)} bytes")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    f"{SERVER_URL}/describe",
+                    json=payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=aiohttp.ClientTimeout(total=120)
+            ) as response:
+
+                if response.status == 200:
+                    result = await response.json()
+                    description = result.get('description', 'No description')
+                    print(f"RECEIVED: {description[:100]}...")
+                    return description
+                else:
+                    error_text = await response.text()
+                    print(f"SERVER ERROR {response.status}: {error_text}")
+                    raise ValueError(f"Server returned {response.status}: {error_text}")
+
+    except aiohttp.ClientError as e:
+        print(f"HTTP ERROR: {str(e)}")
+        raise ValueError(f"Cannot reach server: {str(e)}")
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        raise ValueError(f"Processing failed: {str(e)}")
+
+
+# async def get_description_for_image(image_bytes: bytes, user_context: Optional[str] = None) -> str:
+#     """
+#     Получает описание изображения используя OpenAI GPT-4o.
+#
+#     Args:
+#         image_bytes: Байты изображения (не base64!)
+#         user_context: Пользовательский контекст
+#
+#     Returns:
+#         Описание изображения
+#     """
+#     print(f"INFO: Agent получил изображение размером {len(image_bytes)} байт, context: {user_context}")
+#
+#     # Системный промпт для анализа изображения
+#     system_prompt = "SYSTEM_PROMPT"
+#
+#     user_prompt = "Проанализируй это изображение и дай подробное описание."
+#
+#     try:
+#         # Вызываем обработку изображения
+#         description = await process_image_to_llm(
+#             image_bytes=image_bytes,
+#             system_prompt=system_prompt,
+#             user_prompt=user_prompt,
+#             context=None
+#         )
+#         print(f"SUCCESS: Описание сгенерировано: {description[:100]}...")
+#         return description.strip()
+#
+#     except Exception as e:
+#         print(f"ERROR в get_description_for_image: {str(e)}")
+#         return f"Ошибка анализа изображения: {str(e)}"
 
 
 
