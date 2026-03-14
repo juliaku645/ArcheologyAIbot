@@ -46,3 +46,12 @@ def describe_image():
         import traceback
         print("TRACEBACK:", traceback.format_exc())
         return jsonify({'error': f'Internal error: {str(e)}'}), 500
+
+
+if __name__ == '__main__':
+    port = int(os.getenv('FLASK_PORT', 5000))
+    host = os.getenv('FLASK_HOST', 'localhost')
+    try:
+        app.run(host=host, port=port, debug=False)
+    except KeyboardInterrupt:
+        print("Остановка сервера...")

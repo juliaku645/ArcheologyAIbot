@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from dadata import Dadata
-from agent_proxy_service import get_description_for_image, get_description_for_image_test
+from agent_proxy_service import get_description_for_image
 from database import Database
 import keyboards as kb
 from keyboards import geo_keyboard
