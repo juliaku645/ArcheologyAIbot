@@ -9,7 +9,7 @@ from typing import Optional, List
 class ImageDatabase:
     """Класс для работы с SQLite базой данных изображений."""
     
-    def __init__(self, db_path: str = "AI/database/images_metadata.db"):
+    def __init__(self, db_path: str = "databases/images_metadata.db"):
         """
         Инициализация базы данных.
         

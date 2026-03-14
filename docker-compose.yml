@@ -3,7 +3,7 @@ name: ArcheologyAIbot
 
 services:
   tg-service:
-    image: tg-service:1.0.6
+    image: tg-service:1.0.8
     env_file:
       - .env_docker
     build:
@@ -14,8 +14,8 @@ services:
 #      -DB_PATH: app/database/images_blob.db  # Путь к файлу SQLite (относительно)
 #      -DADATA_TOKEN: ${DADATA_TOKEN}
 #      -TG_TOKEN: ${TG_TOKEN}
-    ports:
-      - "5000:5000"
+#    ports:
+#      - "5000:5000"
     volumes:
       - ./telegram/database:/app/database
     networks:
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 
   ai-service:
-    image: ai-service:1.0.0
+    image: ai-service:1.0.1
     env_file:
       - .env_ai
     build:
@@ -34,8 +34,8 @@ services:
       - "5000:5000"
       - "8190:8190"
     volumes:
-      - ./AI/database:/app/database
-      - ./AI/vector_storage:/app/vector_storage
+      - ./databases:/app/databases
+      - ./databases:/app/databases
     networks:
       - ArcheologyAIbot-network
     restart: unless-stopped

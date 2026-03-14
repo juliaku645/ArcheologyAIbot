@@ -16,8 +16,8 @@ class VectorDatabase:
     """Класс для работы с векторной базой данных FAISS."""
     
     def __init__(self, 
-                 faiss_index_path: str = "AI/vector_storage/faiss_index.bin",
-                 faiss_metadata_path: str = "AI/vector_storage/faiss_metadata.npy",
+                 faiss_index_path: str = "databases/faiss_index.bin",
+                 faiss_metadata_path: str = "databases/faiss_metadata.npy",
                  clip_model_name: str = "clip-ViT-B-32",
                  embed_dim: int = 512):
         """

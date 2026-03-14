@@ -3,13 +3,34 @@ import asyncio
 import base64
 import sys
 import os
+from agent import Agent
 
-# Добавляем путь к agent.py (если файлы в одной папке)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from agent import get_description_for_image  # Импортируем готовую функцию!
 
 app = Flask(__name__)
+async def get_agent():
+    print("DEBUG: Получение агента")
+    return Agent()
+async def get_description_for_image(image_bytes: bytes, user_context: str = None) -> str:
+    """
+    Функция для получения описания изображения (для обратной совместимости).
 
+    Args:
+    image_bytes: Байты изображения
+    user_context: Пользовательский контекст (опционально)
+
+Returns:
+Описание изображения
+"""
+    print(f"INFO: Начало обработки изображения, размер: {len(image_bytes)} байт")
+
+    agent = await get_agent()
+    if agent is None:
+        print("ERROR: Агент не инициализирован! Замените pass в get_agent() на реальную логику.")
+        raise ValueError("Агент недоступен - реализуйте get_agent()")
+
+    description = await agent.get_description_for_image(image_bytes, user_context)
+    print(f"INFO: Описание получено: {description[:100]}...")
+    return description
 @app.route('/describe', methods=['POST'])
 def describe_image():
     """Эндпоинт для получения описания изображения."""

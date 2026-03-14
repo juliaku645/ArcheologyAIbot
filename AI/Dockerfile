@@ -9,11 +9,11 @@ COPY /requirements.txt .
 # Установка Python зависимостей
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копирование кода приложения
-COPY . /app/
+# Копирование кода приложения Только .py файлы
+COPY *.py /app/
 
 # Открытие порта
 EXPOSE 5000
 
 # Запуск приложения
-CMD ["python", "agent.py"]
+CMD ["python", "server.py"]
