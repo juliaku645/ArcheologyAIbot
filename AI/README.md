@@ -27,8 +27,8 @@ python AI/run_parser.py
 
 ### 2. Хранение данных
 
-- **SQLite** (`AI/database/images_metadata.db`) - хранит описания изображений с их хешами
-- **FAISS** (`AI/vector_storage/`) - хранит векторные представления изображений
+- **SQLite** (`databases/images_metadata.db`) - хранит описания изображений с их хешами
+- **FAISS** (`databases/faiss`) - хранит векторные представления изображений
 
 ### 3. Метод `get_description_for_image`
 

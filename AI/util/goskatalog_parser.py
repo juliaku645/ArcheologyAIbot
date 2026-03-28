@@ -10,8 +10,8 @@ from typing import Optional, List, Dict
 
 from langchain_community.llms.chatglm3 import HEADERS
 
-from .database import ImageDatabase
-from .vector_db import VectorDatabase
+from AI.database import ImageDatabase
+from AI.vector_db import VectorDatabase
 
 # Настройка логирования (только если еще не настроено)
 if not logging.getLogger().handlers:

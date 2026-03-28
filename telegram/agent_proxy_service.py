@@ -13,7 +13,7 @@ load_dotenv()
 load_dotenv(encoding='utf-8-sig')
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
-
+SERVER_URL = os.getenv("SERVER_URL", "http://localhost:5000")
 
 def image_bytes_to_base64(image_bytes):
     """Кодирует байтовый объект изображения в base64."""
@@ -76,7 +76,7 @@ async def get_description_for_image(image_bytes: bytes, user_context: Optional[s
     """
        Вызывает POST /describe на server.py через HTTP.
        """
-    SERVER_URL = "http://localhost:5000"
+
 
     # Кодируем image_bytes обратно в base64
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')

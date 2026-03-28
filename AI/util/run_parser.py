@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from AI.database import ImageDatabase
 from AI.vector_db import VectorDatabase
-from AI.goskatalog_parser import GoskatalogParser
+from AI.util.goskatalog_parser import GoskatalogParser
 
 
 async def main():
